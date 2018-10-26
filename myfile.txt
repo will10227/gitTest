@@ -1,5 +1,13 @@
-git test 1st
+/*-------testing block---------*/
 
-the second line
+         git test 1st
+         the second line
+         the third line
 
-the third line
+/*-------testing block end----*/
+
+
+##git & connect to github in terminal tutorial##
+
+
+
