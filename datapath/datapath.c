@@ -60,6 +60,11 @@
 #include "gso.h"
 #include "vport-internal_dev.h"
 #include "vport-netdev.h"
+#include "countmax.h"
+#include "sketch_manage.h"
+
+
+/*-------------------------*/
 
 unsigned int ovs_net_id __read_mostly;
 
@@ -255,6 +260,11 @@ void ovs_dp_detach_port(struct vport *p)
 	ovs_vport_del(p);
 }
 
+
+// static int collecting = 0;
+// static uint32_t packet_count = 0;
+// static uint32_t begin_jiffies = 0;
+// static uint32_t end_jiffies = 0;
 /* Must be called with rcu_read_lock. */
 void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
 {
@@ -267,7 +277,7 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
 	u32 n_mask_hit;
 
 	stats = this_cpu_ptr(dp->stats_percpu);
-
+	my_label_sketch(p->dev->name, skb, key);
 	/* Look up flow. */
 	flow = ovs_flow_tbl_lookup_stats(&dp->table, key, skb_get_hash(skb),
 					 &n_mask_hit);
@@ -287,7 +297,8 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
 		stats_counter = &stats->n_missed;
 		goto out;
 	}
-
+	OVS_CB(skb)->input_vport->dev->name;
+	//countmax_sketch_update(countmax, &empty_key,1);
 	ovs_flow_stats_update(flow, key->tp.flags, skb);
 	sf_acts = rcu_dereference(flow->sf_acts);
 	ovs_execute_actions(dp, skb, sf_acts, key);
@@ -295,11 +306,13 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
 	stats_counter = &stats->n_hit;
 
 out:
+
 	/* Update datapath statistics. */
 	u64_stats_update_begin(&stats->syncp);
 	(*stats_counter)++;
 	stats->n_mask_hit += n_mask_hit;
 	u64_stats_update_end(&stats->syncp);
+
 }
 
 int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
@@ -2442,9 +2455,19 @@ static int __init dp_init(void)
 	err = dp_register_genl();
 	if (err < 0)
 		goto error_unreg_netdev;
+	err = init_filter_sketch(10,2,10);
+	if(err)
+		goto error_filter_sketch;
+	err = sketch_report_init();
+	if(err)
+		goto error_sketch_report;
+	//countmax = new_countmax_sketch(100,2);
 
 	return 0;
-
+error_sketch_report:
+	sketch_report_clean();
+error_filter_sketch:
+	clean_filter_sketch();
 error_unreg_netdev:
 	ovs_netdev_exit();
 error_unreg_notifier:
@@ -2467,6 +2490,12 @@ error:
 
 static void dp_cleanup(void)
 {
+
+	sketch_report_clean();
+	clean_filter_sketch();
+
+	//sketch_report_clean();
+	//delete_countmax_sketch(countmax);
 	dp_unregister_genl(ARRAY_SIZE(dp_genl_families));
 	ovs_netdev_exit();
 	unregister_netdevice_notifier(&ovs_dp_device_notifier);

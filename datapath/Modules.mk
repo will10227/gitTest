@@ -26,7 +26,13 @@ openvswitch_sources = \
 	flow_table.c \
 	vport.c \
 	vport-internal_dev.c \
-	vport-netdev.c
+	vport-netdev.c \
+	countmax.c \
+	countmin.c \
+	countsketch.c \
+	fss.c \
+	sketch_manage.c 
+	
 
 vport_geneve_sources = vport-geneve.c
 vport_vxlan_sources = vport-vxlan.c
@@ -43,7 +49,14 @@ openvswitch_headers = \
 	flow_table.h \
 	vport.h \
 	vport-internal_dev.h \
-	vport-netdev.h
+	vport-netdev.h \
+	countmax.h \
+	countmin.h \
+	countsketch.h \
+	fss.h \
+	sketch_manage.h \
+	flow_key.h \
+	sketch_util.h \
 
 dist_sources = $(foreach module,$(dist_modules),$($(module)_sources))
 dist_headers = $(foreach module,$(dist_modules),$($(module)_headers))
